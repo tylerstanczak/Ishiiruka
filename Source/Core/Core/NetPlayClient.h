@@ -211,6 +211,7 @@ private:
 	void ComputeMD5(const std::string& file_identifier);
 	void DisplayPlayersPing();
 	u32 GetPlayersMaxPing() const;
+	void DisplayGatewayPing();
 
 	bool m_is_connected = false;
 	ConnectionState m_connection_state = ConnectionState::Failure;

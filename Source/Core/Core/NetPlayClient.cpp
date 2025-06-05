@@ -14,6 +14,7 @@
 #include "Common/ENetUtil.h"
 #include "Common/MD5.h"
 #include "Common/MsgHandler.h"
+#include "Common/NetworkUtils.h"
 #include "Common/Timer.h"
 #include "Core/Core.h"
 #include "Core/ConfigManager.h"
@@ -522,7 +523,7 @@ unsigned int NetPlayClient::OnData(sf::Packet& packet)
 			Player& player = m_players[pid];
 			packet >> player.ping;
 		}
-
+		DisplayGatewayPing();
 		DisplayPlayersPing();
 		dialog->Update();
 	}
@@ -642,6 +643,30 @@ u32 NetPlayClient::GetPlayersMaxPing() const
 		m_players.begin(), m_players.end(),
 		[](const auto& a, const auto& b) { return a.second.ping < b.second.ping; })
 		->second.ping;
+}
+
+void NetPlayClient::DisplayGatewayPing()
+{
+	if (!g_ActiveConfig.bShowGatewayPing)
+		return;
+
+	std::string gateway_ip = NetworkUtils::GetLocalGatewayIP();
+	const u32 ping = NetworkUtils::GetLocalGatewayPing(gateway_ip);
+
+	if (ping == NetworkUtils::GATEWAY_PING_INVALID)
+	{
+		OSD::AddTypedMessage(OSD::MessageType::GatewayPing,
+			"Gateway Ping: Error",
+			OSD::Duration::SHORT,
+			OSD::Color::RED);
+	}
+	else
+	{
+		OSD::AddTypedMessage(OSD::MessageType::GatewayPing,
+			StringFromFormat("Gateway Ping: %ums", ping),
+			OSD::Duration::SHORT,
+			OSD::Color::CYAN);
+	}
 }
 
 void NetPlayClient::Disconnect()
