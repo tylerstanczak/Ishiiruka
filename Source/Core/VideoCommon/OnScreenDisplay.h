@@ -27,6 +27,7 @@ struct Message
 
 enum class MessageType
 {
+	GatewayPing,
 	NetPlayPing,
 	NetPlayBuffer,
 	FrameIndex,
