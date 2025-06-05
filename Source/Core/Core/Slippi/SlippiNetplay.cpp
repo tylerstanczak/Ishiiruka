@@ -6,6 +6,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/ENetUtil.h"
 #include "Common/MsgHandler.h"
+#include "Common/NetworkUtils.h"
 #include "Common/Timer.h"
 #include "Core/ConfigManager.h"
 #include "Core/Core.h"
@@ -148,7 +149,7 @@ SlippiNetplayClient::SlippiNetplayClient(std::vector<std::string> addrs, std::ve
 		}
 	}
 
-	slippiConnectStatus = SlippiConnectStatus::NET_CONNECT_STATUS_INITIATED;
+	slippiConnectStatus.store(SlippiConnectStatus::NET_CONNECT_STATUS_INITIATED);
 
 	m_thread = std::thread(&SlippiNetplayClient::ThreadFunc, this);
 }
@@ -158,7 +159,7 @@ SlippiNetplayClient::SlippiNetplayClient(bool isDecider)
 {
 	this->isDecider = isDecider;
 	SLIPPI_NETPLAY = std::move(this);
-	slippiConnectStatus = SlippiConnectStatus::NET_CONNECT_STATUS_FAILED;
+	slippiConnectStatus.store(SlippiConnectStatus::NET_CONNECT_STATUS_FAILED);
 }
 
 u8 SlippiNetplayClient::PlayerIdxFromPort(u8 port)
@@ -421,6 +422,30 @@ unsigned int SlippiNetplayClient::OnData(sf::Packet &packet, ENetPeer *peer)
 			OSD::AddTypedMessage(OSD::MessageType::NetPlayPing, pingDisplay.str(), OSD::Duration::NORMAL,
 			                     OSD::Color::CYAN);
 		}
+		
+		if (g_ActiveConfig.bShowGatewayPing && frame % SLIPPI_PING_DISPLAY_INTERVAL == 0)
+		{
+			const u32 ping = this->m_gateway_ping_ms.load(); // load the stored ping in the main thread
+
+			if (ping == NetworkUtils::GATEWAY_PING_INVALID)
+				OSD::AddTypedMessage(OSD::MessageType::GatewayPing,
+					"Gateway Ping: Error",
+					OSD::Duration::NORMAL,
+					OSD::Color::RED);
+
+			// Ping above 5ms is probably caused by either Wi-Fi or network congestion
+			else if (ping > 9)
+				OSD::AddTypedMessage(OSD::MessageType::GatewayPing,
+					StringFromFormat("Gateway Ping: %ums", ping),
+					OSD::Duration::NORMAL,
+					OSD::Color::YELLOW);
+					
+			else
+				OSD::AddTypedMessage(OSD::MessageType::GatewayPing,
+					StringFromFormat("Gateway Ping: %ums", ping),
+					OSD::Duration::NORMAL,
+					OSD::Color::CYAN);
+		}
 	}
 	break;
 
@@ -667,7 +692,7 @@ void SlippiNetplayClient::Send(sf::Packet &packet)
 void SlippiNetplayClient::Disconnect()
 {
 	ENetEvent netEvent;
-	slippiConnectStatus = SlippiConnectStatus::NET_CONNECT_STATUS_DISCONNECTED;
+	slippiConnectStatus.store(SlippiConnectStatus::NET_CONNECT_STATUS_DISCONNECTED);
 	if (activeConnections.empty())
 	{
 		return;
@@ -734,7 +759,7 @@ void SlippiNetplayClient::ThreadFunc()
 		connections.push_back(false);
 	}
 
-	while (slippiConnectStatus == SlippiConnectStatus::NET_CONNECT_STATUS_INITIATED)
+	while (slippiConnectStatus.load() == SlippiConnectStatus::NET_CONNECT_STATUS_INITIATED)
 	{
 		// This will confirm that connection went through successfully
 		ENetEvent netEvent;
@@ -850,7 +875,9 @@ void SlippiNetplayClient::ThreadFunc()
 		{
 			m_client->intercept = ENetUtil::InterceptCallback;
 			INFO_LOG(SLIPPI_ONLINE, "Slippi online connection successful!");
-			slippiConnectStatus = SlippiConnectStatus::NET_CONNECT_STATUS_CONNECTED;
+			slippiConnectStatus.store(SlippiConnectStatus::NET_CONNECT_STATUS_CONNECTED);
+			StartGatewayPingThread();
+
 			break;
 		}
 
@@ -872,7 +899,7 @@ void SlippiNetplayClient::ThreadFunc()
 				}
 			}
 
-			slippiConnectStatus = SlippiConnectStatus::NET_CONNECT_STATUS_FAILED;
+			slippiConnectStatus.store(SlippiConnectStatus::NET_CONNECT_STATUS_FAILED);
 			INFO_LOG(SLIPPI_ONLINE, "Slippi online connection failed");
 			return;
 		}
@@ -1045,7 +1072,7 @@ bool SlippiNetplayClient::IsConnectionSelected()
 
 SlippiNetplayClient::SlippiConnectStatus SlippiNetplayClient::GetSlippiConnectStatus()
 {
-	return slippiConnectStatus;
+	return slippiConnectStatus.load();
 }
 
 std::vector<int> SlippiNetplayClient::GetFailedConnections()
@@ -1092,7 +1119,7 @@ void SlippiNetplayClient::SendConnectionSelected()
 
 void SlippiNetplayClient::SendSlippiPad(std::unique_ptr<SlippiPad> pad)
 {
-	auto status = slippiConnectStatus;
+	auto status = slippiConnectStatus.load();
 	bool connectionFailed = status == SlippiNetplayClient::SlippiConnectStatus::NET_CONNECT_STATUS_FAILED;
 	bool connectionDisconnected = status == SlippiNetplayClient::SlippiConnectStatus::NET_CONNECT_STATUS_DISCONNECTED;
 	if (connectionFailed || connectionDisconnected)
@@ -1219,6 +1246,25 @@ void SlippiNetplayClient::SendSyncedGameState(SlippiSyncedGameState &s) {
 	}
 	SendAsync(std::move(spac));
 }
+
+// Start gatewaypings in its own non-blocking thread
+void SlippiNetplayClient::StartGatewayPingThread()
+{
+	if (m_gateway_ping_thread_running.exchange(true))
+		return; // already running, don't start again
+
+	std::thread([this]() {
+		std::string gateway_ip = NetworkUtils::GetLocalGatewayIP();
+		while (slippiConnectStatus.load() == SlippiConnectStatus::NET_CONNECT_STATUS_CONNECTED)
+		{
+			const u32 ping = NetworkUtils::GetLocalGatewayPing(gateway_ip);
+			m_gateway_ping_ms.store(ping);
+			std::this_thread::sleep_for(std::chrono::seconds(1));
+		}
+		m_gateway_ping_thread_running.store(false); // allow restart
+	}).detach();
+}
+
 
 bool SlippiNetplayClient::GetGamePrepResults(u8 stepIdx, SlippiGamePrepStepResults &res)
 {

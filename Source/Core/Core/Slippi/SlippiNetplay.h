@@ -7,6 +7,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Event.h"
 #include "Common/FifoQueue.h"
+#include "Common/NetworkUtils.h"
 #include "Common/Timer.h"
 #include "Common/TraversalClient.h"
 #include "Core/NetPlayProto.h"
@@ -14,6 +15,7 @@
 #include "InputCommon/GCPadStatus.h"
 #include <SFML/Network/Packet.hpp>
 #include <array>
+#include <atomic>
 #include <deque>
 #include <map>
 #include <memory>
@@ -188,6 +190,7 @@ class SlippiNetplayClient
 	s32 CalcTimeOffsetUs();
 	bool IsWaitingForDesyncRecovery();
 	SlippiDesyncRecoveryResp GetDesyncRecoveryState();
+	void StartGatewayPingThread();
 
 	void WriteChatMessageToPacket(sf::Packet &packet, int messageId, u8 playerIdx);
 	std::unique_ptr<SlippiPlayerSelections> ReadChatMessageFromPacket(sf::Packet &packet);
@@ -258,7 +261,11 @@ class SlippiNetplayClient
 	FrameTiming lastFrameTiming[SLIPPI_REMOTE_PLAYER_MAX];
 	std::array<Common::FifoQueue<FrameTiming, false>, SLIPPI_REMOTE_PLAYER_MAX> ackTimers;
 
-	SlippiConnectStatus slippiConnectStatus = SlippiConnectStatus::NET_CONNECT_STATUS_UNSET;
+	std::atomic<u32> m_gateway_ping_ms{NetworkUtils::GATEWAY_PING_INVALID};
+	std::atomic<bool> m_gateway_ping_thread_running{false};
+
+	std::atomic<SlippiConnectStatus> slippiConnectStatus{SlippiConnectStatus::NET_CONNECT_STATUS_UNSET};
+
 	std::vector<int> failedConnections;
 	SlippiMatchInfo matchInfo;
 
