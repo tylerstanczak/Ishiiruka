@@ -92,13 +92,15 @@ void VideoConfig::Load(const std::string& ini_file)
 #ifdef IS_PLAYBACK
 	settings->Get("ShowFPS", &bShowFPS, false);
 	settings->Get("ShowNetPlayPing", &bShowNetPlayPing, false);
+	settings->Get("ShowGatewayPing", &bShowGatewayPing, false);
 #else
 	settings->Get("ShowFPS", &bShowFPS, true);
 	settings->Get("ShowNetPlayPing", &bShowNetPlayPing, true);
+	settings->Get("ShowGatewayPing", &bShowGatewayPing, true);
 #endif
 	settings->Get("ShowNetPlayMessages", &bShowNetPlayMessages, false);
-    settings->Get("ShowOSDClock", &bShowOSDClock, false);
-    settings->Get("ShowFrameTimes", &bShowFrameTimes, false);
+  settings->Get("ShowOSDClock", &bShowOSDClock, false);
+  settings->Get("ShowFrameTimes", &bShowFrameTimes, false);
 	settings->Get("LogRenderTimeToFile", &bLogRenderTimeToFile, false);
 	settings->Get("ShowInputDisplay", &bShowInputDisplay, false);
 	settings->Get("OverlayStats", &bOverlayStats, false);
@@ -455,9 +457,10 @@ void VideoConfig::Save(const std::string& ini_file)
 	settings->Set("SafeTextureCacheColorSamples", iSafeTextureCache_ColorSamples);
 	settings->Set("ShowFPS", bShowFPS);
 	settings->Set("ShowNetPlayPing", bShowNetPlayPing);
+	settings->Set("ShowGatewayPing", bShowGatewayPing);
 	settings->Set("ShowNetPlayMessages", bShowNetPlayMessages);
-    settings->Set("ShowOSDClock", bShowOSDClock);
-    settings->Set("ShowFrameTimes", bShowFrameTimes);
+  settings->Set("ShowOSDClock", bShowOSDClock);
+  settings->Set("ShowFrameTimes", bShowFrameTimes);
 	settings->Set("LogRenderTimeToFile", bLogRenderTimeToFile);
 	settings->Set("ShowInputDisplay", bShowInputDisplay);
 	settings->Set("OverlayStats", bOverlayStats);
