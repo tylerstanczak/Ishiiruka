@@ -3,13 +3,13 @@
 
 #include <limits>  // Needed for std::numeric_limits
 
+namespace NetworkUtils {
+
   #ifdef _WIN32
   #include <windows.h>
   #include <iphlpapi.h>
   #include <icmpapi.h>
   #include <winsock2.h>
-
-namespace NetworkUtils {
 
   u32 GetLocalGatewayPing(const std::string& gatewayIp)
   {
