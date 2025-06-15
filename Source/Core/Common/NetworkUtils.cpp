@@ -133,9 +133,9 @@ std::string GetLocalGatewayIP()
     }
 
     return "";
-}
+} // End Apple
 
-#else // Assume Linux
+#elif __linux__ // Linux
 
 u32 GetLocalGatewayPing(const std::string& gatewayIp)
 {
@@ -192,8 +192,13 @@ std::string GetLocalGatewayIP()
         }
     }
     return "";
-}
+} // End Linux
 
-#endif // end Linux
+#else
+// Fallback if no platform matched.
+u32 GetLocalGatewayPing(const std::string&) { return GATEWAY_PING_INVALID; }
+std::string GetLocalGatewayIP() { return ""; }
+
+#endif
 
 } // namespace NetworkUtils
