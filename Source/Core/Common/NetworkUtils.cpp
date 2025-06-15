@@ -8,20 +8,23 @@
 #include <iphlpapi.h>
 #include <icmpapi.h>
 #include <winsock2.h>
-#else
+#include <ws2tcpip.h>  // For inet_pton on newer Windows
+#else // Linux/Apple shared includes
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #endif
 
 #ifdef __linux__
 #include <fstream>
 #include <sstream>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#elif __APPLE__
+
+#elif defined(__APPLE__)
 #include <array>
 #include <memory>
+#include <sys/socket.h>
 #endif
 
 namespace NetworkUtils {
@@ -38,11 +41,16 @@ u32 GetLocalGatewayPing(const std::string& gatewayIp)
     BYTE ReplyBuffer[sizeof(ICMP_ECHO_REPLY) + sizeof(SendData)];
 
     u32 replySize = sizeof(ReplyBuffer);
-    u32 ip = inet_addr(gatewayIp.c_str());
-    if (ip == INADDR_NONE)
+    
+    // Fix deprecated inet_addr usage
+    struct sockaddr_in sa;
+    int result_addr = inet_pton(AF_INET, gatewayIp.c_str(), &(sa.sin_addr));
+    if (result_addr != 1)
     {
+        IcmpCloseHandle(hIcmpFile);
         return GATEWAY_PING_INVALID;
     }
+    u32 ip = sa.sin_addr.s_addr;
 
     u32 result = IcmpSendEcho(hIcmpFile, ip, SendData, sizeof(SendData),
                               NULL, ReplyBuffer, replySize, 1000);
@@ -79,7 +87,7 @@ std::string GetLocalGatewayIP()
     return "";
 }
 
-#elif __APPLE__
+#elif defined(__APPLE__)
 
 u32 GetLocalGatewayPing(const std::string& gatewayIp)
 {
@@ -135,7 +143,7 @@ std::string GetLocalGatewayIP()
     return "";
 } // End Apple
 
-#elif __linux__ // Linux
+#elif defined(__linux__) // Linux
 
 u32 GetLocalGatewayPing(const std::string& gatewayIp)
 {
