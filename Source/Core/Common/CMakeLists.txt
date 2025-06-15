@@ -18,6 +18,7 @@ set(SRCS Analytics.cpp
 		 MsgHandler.cpp
 		 NandPaths.cpp
 		 Network.cpp
+		 NetworkUtils.cpp
 		 PcapFile.cpp
 		 PerformanceCounter.cpp
 		 Profiler.cpp
