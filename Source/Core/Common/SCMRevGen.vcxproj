@@ -36,8 +36,8 @@
     <Import Project="..\..\VSProps\Base.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros">
-    <CScript Condition="'$(ProgramFiles(x86))' != ''">%windir%\System32\cscript</CScript>
-    <CScript Condition="'$(ProgramFiles(x86))' == ''">%windir%\Sysnative\cscript</CScript>
+    <CScript Condition="Exists('$(windir)\System32\cscript.exe')">$(windir)\System32\cscript.exe</CScript>
+    <CScript Condition="!Exists('$(windir)\System32\cscript.exe') and Exists('$(windir)\Sysnative\cscript.exe')">$(windir)\Sysnative\cscript.exe</CScript>
   </PropertyGroup>
   <!--
     OutDir is always created, which is annoying for SCMRevGen as it doesn't really have an outdir.
